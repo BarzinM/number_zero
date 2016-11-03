@@ -1,6 +1,18 @@
 import cv2
 
 
+def setWidthHeight(width, height, device_number=0):
+    # http://docs.opencv.org/2.4/modules/highgui/doc/reading_and_writing_images_and_video.html#videocapture-set
+    cap = cv2.VideoCapture(device_number)
+    cap.SetCaptureProperty(cv2.CV_CAP_PROP_FRAME_WIDTH, width)
+    cap.SetCaptureProperty(cv2.CV_CAP_PROP_FRAME_HEIGHT, height)
+
+
+def setFPS(fps, device_number=0):
+    cap = cv2.VideoCapture(device_number)
+    cap.SetCaptureProperty(cv2.CV_CAP_PROP_FPS, fps)
+
+
 def monitor(device_number=0):
 
     cap = cv2.VideoCapture(device_number)
@@ -56,7 +68,7 @@ def streamRecieve(ip, port):
         packed_message_size = data[:data_size]
         data = data[data_size:]
         message_size = struct.unpack("L", packed_message_size)[0]
-        while len(data)<message_size:
+        while len(data) < message_size:
             data += connection.recvfrom(4096)
         frame_data = data[:message_size]
         data = data[message_size:]
