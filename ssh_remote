@@ -1,0 +1,6 @@
+ip=$($NUMBER_ZERO_PATH/parse_config $NUMBER_ZERO_PATH/config/general.yml 'remote' 'ip')
+login_name=$($NUMBER_ZERO_PATH/parse_config $NUMBER_ZERO_PATH/config/general.yml 'remote' 'login_name')
+
+echo "Logging into $ip as '$login_name'"
+
+ssh $login_name@$ip

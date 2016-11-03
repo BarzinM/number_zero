@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+
+function getValue {
+  sed -ne 's/^[a-zA-Z0-9_].*:\s*\([a-zA-Z0-9_"].*\)/\1/p' $1 | grep '.\+'
+}
+
+function getKey {
+  sed 's/\(\):.*/\1/' $1 
+}
+
+function findKeyLines {
+  sed -ne "/^[a-zA-Z0-9_]/p" $1
+}
+
+function findKey {
+  grep $1
+}
+
+function findAttributes {
+  echo "$1" | sed -n "/^$2:.*$/ { s///; :a; n; p; ba; }" | sed  "/^[a-zA-Z0-9_]/Q"
+}
+
+function getNumberOfLeadingSpaces {
+  sed -ne 's/^\(\s\+\).*/\1/p' $1 | awk '{print length}'
+}
+
+function getMinimum {
+  min=100
+  for n in $1 ; do
+      ((n < min)) && min=$n
+  done
+  echo $min
+}
+
+function reduceSpace {
+  echo "$1" | sed -ne "s/^\( \)\{$minimum_space\}//p" 
+}
+
+function parseYaml {
+  yaml_array=$( cat $1 )
+  yaml=$( echo "$yaml_array" )
+  for var in "${@:2}"
+  do
+    key=$var
+    value=$( echo "$yaml" | findKeyLines | findKey $key | getValue )
+    exit_code=$?
+    # echo "$exit_code"
+    if [ $exit_code -ne 0 ];then
+      # echo "$yaml"
+      attributes=$( findAttributes "$yaml" $key )
+      spaces=$( echo "$attributes" | getNumberOfLeadingSpaces )
+      minimum_space=$( getMinimum $spaces )
+      # echo 'here'
+      # echo "$attributes"
+      # reduceSpace $( echo "$attributes" )
+      # echo 'here2'
+      yaml=$( reduceSpace "$attributes" )
+    else
+      yaml=$value
+    fi
+
+  done
+  echo "$yaml"
+
+}
+
+parseYaml $@
