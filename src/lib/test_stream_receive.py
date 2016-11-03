@@ -1,3 +1,3 @@
 import camera
 
-camera.streamRecieve(8089)
+camera.streamRecieve('192.168.1.113',8089)

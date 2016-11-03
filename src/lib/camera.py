@@ -26,7 +26,7 @@ def streamSend(ip, port, device_number=0):
 
     cap = cv2.VideoCapture(device_number)
     stream = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    # stream.connect((ip, port))
+
     try:
         while True:
             ret, frame = cap.read()
@@ -36,19 +36,18 @@ def streamSend(ip, port, device_number=0):
     except Exception as e:
         cap.release()
         cv2.destroyAllWindows()
+        print("Released all resources!!!")
         raise e
 
 
-def streamRecieve(port):
+def streamRecieve(ip, port):
     import socket
     import struct
     import pickle
 
     connection = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    connection.bind(('localhost', port))
-    # connection.listen(1)
-    # stream, address = connection.accept()
-    print("Connection Established with",address)
+    connection.bind((ip, port))
+
     data = ""
     data_size = struct.calcsize("L")
     while True:
