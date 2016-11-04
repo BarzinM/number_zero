@@ -1,3 +1,3 @@
-import camera
+import src.lib.camera as camera
 
-camera.streamSend('localhost',8089,0)
+camera.streamSend('192.168.1.4',8089)

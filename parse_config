@@ -44,7 +44,7 @@ function parseYaml {
     key=$var
     value=$( echo "$yaml" | findKeyLines | findKey $key | getValue )
     exit_code=$?
-    # echo "$exit_code"
+    # echo exitcode "$exit_code"
     if [ $exit_code -ne 0 ];then
       # echo "$yaml"
       attributes=$( findAttributes "$yaml" $key )
