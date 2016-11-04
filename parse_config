@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 function getValue {
-  sed -ne 's/^[a-zA-Z0-9_].*:\s*\([a-zA-Z0-9_"].*\)/\1/p' $1 | grep '.\+'
+  sed -ne 's/^[a-zA-Z0-9_].*:\s*\([a-zA-Z0-9_"{][^#]*\)#*.*/\1/p' $1 | grep '.\+'
 }
 
 function getKey {

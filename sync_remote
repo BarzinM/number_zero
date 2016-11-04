@@ -1,26 +1,43 @@
 #!/usr/bin/expect -f
 log_user 0
-
 set timeout 10;
+
+proc usage {} {
+    puts {Syncs the files between this computer and a remote.}
+    puts {Usage: sync_remote [force]}
+    exit
+}
+
+if { $argv == "--help" } {
+    usage
+}
+
 set PATH $::env(NUMBER_ZERO_PATH)
 
 set user [exec $PATH/parse_config $PATH/config/general.yml remote login_name]
 set local_dir "$PATH/*"
 set remote_dir "~/number_zero/"
 set ip [ exec $PATH/parse_config $PATH/config/general.yml remote ip ]
-set exc "{bashme_to_internet_share,ssh_remote,sync_remote,general.yml,*.pyc}"
+set exc [ exec $PATH/parse_config $PATH/config/sync.yml excludes ]
 
 puts "Syncing $local_dir to $remote_dir with $ip as $user ..."
 
-puts -nonewline "The following will be updated: "
-spawn bash -c "rsync -avzPn --no-perms --no-owner --no-group --exclude=$exc $local_dir $user@$ip:$remote_dir"
-flush stdout
+if {$argv != "force"} {
+    puts "The following will be updated:"
+    puts "=============================="
 
-interact
-puts "\nDo you want to proceed \[y/N]?"
-set response [gets stdin]
+    spawn bash -c "rsync -avzPn --no-perms --no-owner --no-group --exclude=$exc $local_dir $user@$ip:$remote_dir"
+    flush stdout
 
-if {$response == "y" } {
-spawn bash -c "rsync -avzP --no-perms --no-owner --no-group --exclude=$exc $local_dir $user@$ip:$remote_dir"
-interact
+    interact
+    puts "=============================="
+    puts -nonewline "Do you want to proceed \[y/N]? "
+    flush stdout
+    set response [gets stdin]
+}
+
+
+if {($argv == "force") || ($response == "y")} {
+    spawn bash -c "rsync -avzP --no-perms --no-owner --no-group --exclude=$exc $local_dir $user@$ip:$remote_dir"
+    interact
 }

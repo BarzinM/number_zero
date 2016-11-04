@@ -1,0 +1,3 @@
+**/*.pyc
+config/*.yml
+!config/*_template.yml

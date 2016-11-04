@@ -2,11 +2,13 @@ import tensorflow as tf
 
 
 class ConvolutionalAutoencoder(object):
-    def __init__(self, input_dims):
+    def __init__(self, input_dims, save_path):
         self.train_dataset_address = None
         self.previous_channels = input_dims
         self.input_dims = input_dims
         self.encode_parameters = []
+        self.learning_rate = .5
+        self.save_path = None
         pass
 
     def addLayer(self, kernel_size, channels, strides=[1, 1, 1, 1], normilization=True):
@@ -45,17 +47,22 @@ class ConvolutionalAutoencoder(object):
 
         return tf.reduce_mean(tf.square(data - input))
 
-    def train(self, save_path):
+    def train(self, steps, learning_rate=None, save_path=None):
+        if learning_rate is not None:
+            self.learning_rate = learning_rate
+        if save_path is not None:
+            self.save_path = save_path
         graph = tf.Graph()
         with graph.as_default():
             input_data = tf.placeholder(
                 tf.float32, self.input_dims, name='autoencoder_input')
             cost = self.getCost(input_data)
-            optimizer = tf.train.RMSPropOptimizer(learning_rate).minimize(cost)
+            optimizer = tf.train.RMSPropOptimizer(self.learning_rate).minimize(cost)
+    
         with tf.Session(graph=graph) as session:
             tf.initialize_all_variables().run()
             for i in range(steps):
                 _, c = session.run([optimizer, cost], feed_dict={
                                    input_data: train_data})
 
-            session.run(encoded, feed_dict={input_data: test_data})
+            session.run(self.encoded, feed_dict={input_data: test_data})

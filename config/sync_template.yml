@@ -1,0 +1,1 @@
+excludes: {bashme_to_internet_share,ssh_remote,sync_remote,general.yml,*.pyc} # if one element then remote braces
