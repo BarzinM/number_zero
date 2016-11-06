@@ -1,5 +1,10 @@
-import cPickle as pickle
 import tensorflow as tf
+import cPickle as pickle
+
+def generateWeightAndBias(shape):
+    weight = tf.Variable(tf.truncated_normal(shape, stddev=.01))
+    bias = tf.Variable(tf.constant(.01, shape=[shape[-1]]))
+    return weight, bias
 
 
 class NNLayer(object):
@@ -17,5 +22,5 @@ class DeepNet(object):
     def save(self, file):
         pickle.dump()
 
-    def load(self,file):
+    def load(self, file):
         pickle.load()

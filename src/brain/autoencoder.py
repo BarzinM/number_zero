@@ -1,4 +1,57 @@
 import tensorflow as tf
+from deepnet import generateWeightAndBias
+
+
+class ConvolutionalAutoencoderSingle(object):
+    def __init__(self):
+        pass
+
+    def model(self):
+        batch_size = 8
+        image_size = 28
+        num_channels = 1
+        patch_size = 5
+        self.graph = tf.Graph()
+        with self.graph.as_default():
+            self.data_input = tf.placeholder(tf.float32, shape=(
+                batch_size, image_size, image_size, num_channels), name="data_input_placeholder")
+
+            weight, bias_1 = generateWeightAndBias(
+                [patch_size, patch_size, 1, 5])
+            bias_2 = tf.Variable(
+                tf.constant(.01, shape=[patch_size, patch_size, 1]))
+
+            data = tf.nn.conv2d(self.data_input, weight, strides=[
+                                1, 1, 1, 1], padding='SAME')
+
+            self.encoded = tf.nn.relu(data + bias_1)
+
+            data = tf.nn.conv2d_transpose(
+                self.encoded, weight, output_shape=[batch_size, image_size, image_size, num_channels], strides=[1, 1, 1, 1])
+            self.reconstructed = tf.nn.sigmoid(data + bias_2)
+
+    def optimizer(self):
+        with self.graph.as_default():
+            self.loss = tf.reduce_mean(
+                tf.square(self.reconstructed - self.data_input))
+            self.optimizer = tf.train.AdamOptimizer(.001).minimize(self.loss)
+
+    def train(self, train_steps, train_generator, valid_steps, valid_generator):
+        with tf.Session(graph=self.graph) as session:
+            tf.initialize_all_variables().run()
+            for i in range(1, train_steps + 1):
+                train_data = next(train_generator)
+                _, c = session.run([self.optimizer, self.loss], feed_dict={
+                                   self.data_input: train_data})
+                if i % 100 == 0:
+                    print('train loss is', c)
+                    c = 0
+                    for batch in range(0, valid_steps):
+                        valid_data = next(valid_generator)
+                        feed_dict = {self.data_input: valid_data}
+                        c += self.loss.eval(feed_dict)
+                    print('Validation loss is', 100 * c /
+                          (valid_steps * self.batch_size))
 
 
 class ConvolutionalAutoencoder(object):
@@ -14,9 +67,8 @@ class ConvolutionalAutoencoder(object):
     def addLayer(self, kernel_size, channels, strides=[1, 1, 1, 1], normilization=True):
         shape = [kernel_size, kernel_size, self.previous_channels, channels]
         # use 1/sqrt(dim) for stddev:
-        weight = tf.Variable(tf.truncated_normal(shape, stddev=0.1))
+        weight, bias = generateWeightAndBias(shape)
         # https://github.com/pkmital/tensorflow_tutorials/blob/master/python/09_convolutional_autoencoder.py
-        bias = tf.Variable(tf.constant(.05, shape=channels))
 
         self.encode_parameters.append([weight, bias, strides, shape])
 
@@ -57,8 +109,9 @@ class ConvolutionalAutoencoder(object):
             input_data = tf.placeholder(
                 tf.float32, self.input_dims, name='autoencoder_input')
             cost = self.getCost(input_data)
-            optimizer = tf.train.RMSPropOptimizer(self.learning_rate).minimize(cost)
-    
+            optimizer = tf.train.RMSPropOptimizer(
+                self.learning_rate).minimize(cost)
+
         with tf.Session(graph=graph) as session:
             tf.initialize_all_variables().run()
             for i in range(steps):

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import cv2
 
 
@@ -33,33 +34,35 @@ def monitor(device_number=0):
 
 def streamSend(ip, port, device_number=0):
     import socket
-    import pickle
+    import cPickle as pickle
     import struct
 
-    cap = cv2.VideoCapture(device_number)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-    # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    # sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
     sock.bind((ip, port))
     sock.listen(1)
     connection, address = sock.accept()
-    print('Recieved connection from',str(address))
-    # stream = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    print('Recieved connection from ' + str(address))
+
+    data_size = struct.calcsize(">L")
+
+    cap = cv2.VideoCapture(device_number)
+    cap.set(3, 160)
+    cap.set(4, 120)
 
     try:
         while True:
             ret, frame = cap.read()
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             data = pickle.dumps(frame)
-            print('sending',len(data))
-            connection.sendall(struct.pack("L", len(data)))
-            while len(data)>0:
-                connection.sendall(data[:1024])
-                data = data[1024:]
-    except Exception:
-        raise
+
+            connection.sendall("snp")
+            connection.sendall(struct.pack(">L", len(data)))
+            connection.sendall(struct.pack(">L", len(data)))
+            for i in range(0, len(data), 4096):
+                connection.sendall(data[i:i + 4096])
+            connection.sendall("ep")
+
     except KeyboardInterrupt:
         pass
     finally:
@@ -71,35 +74,113 @@ def streamSend(ip, port, device_number=0):
 def streamRecieve(ip, port):
     import socket
     import struct
-    import pickle
+    import cPickle as pickle
 
     connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    connection.settimeout(10)
-    connection.connect((ip,port))
-    # connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+    connection.settimeout(100)
+    connection.connect((ip, port))
 
-    data_size = struct.calcsize("L")
-    data = ""
+    data_size = struct.calcsize(">L")
+    offset = 2 * data_size + 3
+
+    data = connection.recv(4096)
+    frame_recived = 0
+    cv2.namedWindow('Stream from remote', cv2.WINDOW_NORMAL)
+
     while True:
-        # while len(data) < data_size:
-        data = connection.recv(data_size)
-        packed_message_size = data
-        message_size = struct.unpack("L", packed_message_size)[0]
-        # data = data[data_size:]
-        frame_data = ""
-        print(message_size)
-        while len(frame_data) < message_size:
-            frame_data+=connection.recv(100)
-        # frame_data = connection.recv(message_size)
-        # frame_data = data[:message_size]
-        # data = data[message_size:]
+        pointer = -1
+        while len(data) < 4096:
+            data += connection.recv(4096)
 
-        print('showing')
-        try:
-            frame = pickle.loads(frame_data)
-        except EOFError:
-            pass
-        cv2.imshow('frame', frame)
+        for i in range(len(data) - offset):
+            if data[i] == 's' and data[i + 1] == 'n' and data[i + 2] == 'p':
+                pointer = i + 3
+                break
+        if pointer < 0:
+            data = data[-offset:] + connection.recv(4096)
+            print('looking again', len(data))
+            continue
+
+        message_size = struct.unpack(
+            ">L", data[pointer:pointer + data_size])[0]
+        pointer += data_size
+        message_size_2 = struct.unpack(
+            ">L", data[pointer:pointer + data_size])[0]
+        pointer += data_size
+        if message_size != message_size_2:
+            print 'bad packet size info'
+            continue
+
+        while len(data) < message_size + pointer:
+            data += connection.recv(4096)
+
+        frame_data = data[pointer:pointer + message_size]
+        pointer += message_size
+
+        if data[pointer:pointer + 2] != "ep":
+            print("bad end")
+            data = data[pointer:]
+            continue
+
+        data = data[pointer + 2:]
+
+        frame = pickle.loads(frame_data)
+
+        frame_recived += 1
+        cv2.putText(frame, '# %d' % frame_recived, (10, 25),
+                    cv2.FONT_HERSHEY_SIMPLEX, .5, (255, 0, 0), 1, cv2.LINE_AA)
+        cv2.imshow('Stream from remote', frame)
         cv2.waitKey(1)
-    
+
+
+def streamSendNewImages(ip, port, device_number=0):
+    import socket
+    import cPickle as pickle
+    import struct
+    import numpy as np
+    from time import sleep
+
+    cap = cv2.VideoCapture(device_number)
+    cap.set(3, 320)
+    cap.set(4, 240)
+
+    ret, frame = cap.read()
+    frame_previous = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((ip, port))
+    sock.listen(1)
+    connection, address = sock.accept()
+    print('Recieved connection from', str(address))
+
+    data_size = struct.calcsize(">L")
+    try:
+        while True:
+            ret, frame = cap.read()
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+            diff = cv2.absdiff(frame, frame_previous)
+
+            if diff.mean() < 20: # threshold for recognizing change in frames
+                continue
+            frame_previous = frame
+            
+            data = pickle.dumps(frame)
+            
+            connection.sendall("snp")
+            data_length = len(data)
+            connection.sendall(struct.pack(">L", data_length))
+            connection.sendall(struct.pack(">L", data_length))
+            for i in range(0, data_length, 4096):
+                connection.sendall(data[i:i + 4096])
+            connection.sendall("ep")
+
+    except KeyboardInterrupt:
+        pass
+
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
+        print("\rReleased all resources!!!")
