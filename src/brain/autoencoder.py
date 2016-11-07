@@ -1,5 +1,5 @@
 import tensorflow as tf
-from deepnet import generateWeightAndBias
+from brain.deepnet import generateWeightAndBias
 
 
 class ConvolutionalAutoencoderSingle(object):
@@ -7,19 +7,20 @@ class ConvolutionalAutoencoderSingle(object):
         pass
 
     def model(self):
-        batch_size = 8
+        self.batch_size = 8
         image_size = 28
         num_channels = 1
         patch_size = 5
         self.graph = tf.Graph()
         with self.graph.as_default():
             self.data_input = tf.placeholder(tf.float32, shape=(
-                batch_size, image_size, image_size, num_channels), name="data_input_placeholder")
+                self.batch_size, image_size, image_size, num_channels), name="data_input_placeholder")
 
             weight, bias_1 = generateWeightAndBias(
                 [patch_size, patch_size, 1, 5])
-            bias_2 = tf.Variable(
-                tf.constant(.01, shape=[patch_size, patch_size, 1]))
+            # bias_2 = tf.Variable(
+            #     tf.constant(.01, shape=(
+                # self.batch_size, image_size, image_size, num_channels)))
 
             data = tf.nn.conv2d(self.data_input, weight, strides=[
                                 1, 1, 1, 1], padding='SAME')
@@ -27,8 +28,8 @@ class ConvolutionalAutoencoderSingle(object):
             self.encoded = tf.nn.relu(data + bias_1)
 
             data = tf.nn.conv2d_transpose(
-                self.encoded, weight, output_shape=[batch_size, image_size, image_size, num_channels], strides=[1, 1, 1, 1])
-            self.reconstructed = tf.nn.sigmoid(data + bias_2)
+                self.encoded, weight, output_shape=[self.batch_size, image_size, image_size, num_channels], strides=[1, 1, 1, 1])
+            self.reconstructed = tf.nn.tanh(data)
 
     def optimizer(self):
         with self.graph.as_default():
@@ -37,6 +38,7 @@ class ConvolutionalAutoencoderSingle(object):
             self.optimizer = tf.train.AdamOptimizer(.001).minimize(self.loss)
 
     def train(self, train_steps, train_generator, valid_steps, valid_generator):
+        saver = tf.train.Saver()
         with tf.Session(graph=self.graph) as session:
             tf.initialize_all_variables().run()
             for i in range(1, train_steps + 1):
@@ -44,14 +46,23 @@ class ConvolutionalAutoencoderSingle(object):
                 _, c = session.run([self.optimizer, self.loss], feed_dict={
                                    self.data_input: train_data})
                 if i % 100 == 0:
-                    print('train loss is', c)
+                    print('train loss is', c,end='')
                     c = 0
                     for batch in range(0, valid_steps):
                         valid_data = next(valid_generator)
                         feed_dict = {self.data_input: valid_data}
                         c += self.loss.eval(feed_dict)
-                    print('Validation loss is', 100 * c /
+                    print(' Validation loss is', 100 * c /
                           (valid_steps * self.batch_size))
+            save_path = saver.save(session,"/tmp/model.ckpt")
+            print("Model saved in file: %s"%save_path)
+
+    def loadModel(self,path):
+        # https://www.tensorflow.org/versions/master/api_docs/python/state_ops.html#exporting-and-importing-meta-graphs
+        self.model()
+        saver = tf.train.Saver()
+        with tf.Session() as session:
+            saver.restore(session,path)
 
 
 class ConvolutionalAutoencoder(object):

@@ -1,9 +1,55 @@
 import numpy as np
 from scipy import ndimage
 import os
+import random
+import glob
 
 
-def dataGenerator(batch_size,file_name):
+def toOnehot(array, num_classes=10):
+    """
+    Takes a 1 dimensional array and returns a 2 dimensional array of one-hots with the dimension 0 with the same size of input array and dimension 1 with the size of `num_of_classes`.
+
+    Inputs:
+    - array: 1D array in which each element is a class index.
+    - num_classes: number of classes that each element of `array` falls into.
+
+    Outputs:
+    - A 2D array of one-hots.
+    """
+    count = len(array)
+    onehot_array = np.zeros((count, num_classes), np.int8)
+    onehot_array[np.arange(count), array] = 1
+    return onehot_array
+
+
+def showMultipleArraysHorizontally(array, labels=None, max_per_row=10):
+    """
+    Takes an array with the shape [number of images, width, height] and shows the images in rows.
+
+    Inputs:
+    - array: a 3 dimensional array with the shape: [number of images, width, height]
+    - labels: a 1 dimensional array with the length of number of images in which each element is the label of corresponding image in input `array`.
+    - max_per_row: maximum number of images in each row before going to the next row.
+    """
+    from matplotlib.pyplot import figure, imshow, axis
+    # from matplotlib.image import imread
+    # from random import sample
+    # from matplotlib.pyplot import matshow
+    import matplotlib.pyplot as plt
+    fig = figure()
+    number_of_images = len(array)
+    rows = np.floor(number_of_images / max_per_row)+1
+    columns = min(number_of_images, max_per_row)
+    for i in range(number_of_images):
+        ax = fig.add_subplot(rows, columns, i + 1)
+        if labels is not None:
+            ax.set_title(labels[i])
+        plt.imshow(array[i], cmap=plt.get_cmap('gray'))
+        axis('off')
+    plt.show()
+
+
+def dataGenerator(batch_size, file_name):
     file_handle = open(file_name, "rb")
     while True:
 
@@ -11,60 +57,41 @@ def dataGenerator(batch_size,file_name):
         try:
             data = np.load(file_handle)
         # if reached end of file
-        except OSError:
+        except IOError:
             # go to the beginning
             file_handle.seek(0)
             # and try loading again
             data = np.load(file_handle)
-        
-        # randomize
-        data = shuffleArrays([data])
-        
+
         # get batches
         number_of_datapoints = data.shape[0]
-        full_batches = number_of_datapoints//batch_size # few datapoints are going to waste here
 
-        for batch_start in range(0,full_batches,batch_size):
-            batch_data = data[batch_start:batch_start+batch_size]
-            
+        full_batches = number_of_datapoints//batch_size
+
+        for batch_count in range(0, full_batches):
+            batch_data = data[batch_count*batch_size:(batch_count+1)*batch_size]
+
             yield batch_data
 
 
-def arrayToFile(array,file_name):
-    # read lots of files
-    pickle_file = dataset+"_preprocessed"
-    struct_file = dataset+"/digitStruct.mat"
-    number_of_files = sv.getNumberOfFiles(struct_file)
-#     number_of_files = big_batch_size # just for debug
-    data_samples = np.random.permutation(number_of_files)
-    file_handle = open(pickle_file,"wb")
+def arrayToFile(file_name, array, batch_size):
+
+    file_handle = open(file_name, "wb")
+    number_of_data = array.shape[0]
+    print('Saving %d data samples into "%s" ...' %(number_of_data,file_name))
 
     # iterate over data in big batches
-    for batch_start in range(0,number_of_files, big_batch_size):
-
-        # read the .mat file and parse attributes of data files
-        batch_indexes = data_samples[batch_start:batch_start+big_batch_size]
-
-        file_names,train_labels = sv.getLabels(struct_file,batch_indexes)
-        train_values = sv.getImage(file_names, dataset,shape=image_shape)
-
-
-        # form and normalize
-        pixel_depth = 255
-        train_values = sv.scaleData(train_values,pixel_depth)
-        train_labels = sv.parseLabels(train_labels,max_digits_in_label)
-
-        # save in file
-        np.save(file_handle, train_values)
-        np.save(file_handle, train_labels)
+    for batch_start in range(0, number_of_data, batch_size):
+        np.save(file_handle, array[batch_start: batch_start + batch_size])
 
         # process status
-        completion_percentil = 100*(batch_start+big_batch_size)/number_of_files
-        print("Compeleted %%%d"%completion_percentil)
+        completion_percentil = 100 * \
+            min(batch_start + batch_size, number_of_data) / number_of_data
+        print("Compeleted %%%d" % completion_percentil)
 
     # always close the file
     file_handle.close()
-    
+
 
 def imageToArray(file_name):
     return ndimage.imread(file_name).astype(float)
@@ -77,13 +104,20 @@ def fileListToArray(file_list):
     dataset[0, :, :] = image_data
 
     for i in range(1, len(file_list)):
-        dataset[i, :, :] = imageToArray(file_list[i])
+        try:
+            dataset[i, :, :] = imageToArray(file_list[i])
+        except IOError:
+            pass
 
     return dataset
 
 
-def ls(directory):
-    return os.listdir(directory)
+def ls(directory, extension):
+    return glob.glob(os.path.join(directory, extension))
+
+
+def shuffleFiles(array):
+    return random.sample(array, len(array))
 
 
 def shuffleArrays(list_of_arrays):
