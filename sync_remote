@@ -26,7 +26,7 @@ if {$argv != "force"} {
     puts "The following will be updated:"
     puts "=============================="
 
-    spawn bash -c "rsync -avzPn --no-perms --no-owner --no-group --exclude=$exc $local_dir $user@$ip:$remote_dir"
+    spawn bash -c "rsync -avzPn --no-perms --no-owner --no-group --exclude=$exc --delete-before $local_dir $user@$ip:$remote_dir"
     flush stdout
 
     interact
@@ -38,6 +38,6 @@ if {$argv != "force"} {
 
 
 if {($argv == "force") || ($response == "y")} {
-    spawn bash -c "rsync -avzP --no-perms --no-owner --no-group --exclude=$exc $local_dir $user@$ip:$remote_dir"
+    spawn bash -c "rsync -avzP --no-perms --no-owner --no-group --exclude=$exc --delete-before $local_dir $user@$ip:$remote_dir"
     interact
 }
