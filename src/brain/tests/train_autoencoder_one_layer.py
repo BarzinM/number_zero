@@ -2,7 +2,7 @@ import brain.autoencoder as ae
 import numpy as np
 from brain.prepros import dataGenerator, showMultipleArraysHorizontally
 
-batch_size = 80
+batch_size = 8
 train_dataset = '../data/processed/notmnist_images_train'
 valid_dataset = '../data/processed/notmnist_images_valid'
 
@@ -26,4 +26,4 @@ v_gen = _gen(valid_dataset)
 net = ae.ConvolutionalAutoencoderSingle()
 net.model()
 net.optimizer()
-net.train(10000, t_gen, 100, v_gen)
+net.train(100000, t_gen, 100, v_gen)
