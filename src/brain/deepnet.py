@@ -6,20 +6,22 @@ def generateWeightAndBias(shape):
     return weight, bias
 
 
-class NNLayer(object):
-    pass
+class DeepNet(object):
+    def __init__(self):
+        pass
 
+    def addComponent(self, model, name):
+        with tf.variable_scope(name):
+            pass
 
-class NeuralNet(object):
-    pass
+    def save(self):
+        pass
 
+    def load(self):
+        pass
 
-# class DeepNet(object):
-#     def __init__(self):
-#         pass
+    def train(self,loss):
+        with tf.Session() as session:
+            tf.initialize_all_variables().run()
+        pass
 
-#     def save(self, file):
-#         pickle.dump()
-
-#     def load(self, file):
-#         pickle.load()
