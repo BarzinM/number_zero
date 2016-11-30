@@ -1,5 +1,79 @@
 from __future__ import print_function
 import cv2
+import threading
+from time import sleep
+
+
+class Camera(object):
+    def __init__(self):
+        self.width = None
+        self.height = None
+        self.cap = None
+        self.frame = None
+        self.frame_lock = threading.Lock()
+        self.running = True
+        pass
+
+    def _applySize(self):
+        if self.width is not None and self.height is not None:
+            self.cap.set(3, self.width)
+            self.cap.set(4, self.height)
+
+    def setSize(self, width, height):
+        self.width = width
+        self.height = height
+
+    def send(self, ip, port, device_number=0):
+        pass
+
+    def receive(self, ip, port):
+        pass
+
+    def _capture(self):
+        cap = self.cap
+        while self.running:
+            ret, frame = cap.read()
+
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+            with self.frame_lock:
+                self.frame = gray
+
+        cap.release()
+
+    def capture(self, device_number=0):
+        self.cap = cv2.VideoCapture(device_number)
+        self._applySize()
+        thrd = threading.Thread(target=self._capture)
+        thrd.daemon = True
+        thrd.start()
+        while self.frame is None:
+            sleep(.01)
+
+    def monitor(self, device_number=0):
+        cap = cv2.VideoCapture(device_number)
+
+        while True:
+            ret, frame = cap.read()
+
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+            cv2.imshow('frame', gray)
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+        cap.release()
+        cv2.destroyAllWindows()
+
+    def display(self):
+        while True:
+            cv2.imshow('frame', self.getFrame())
+            cv2.waitKey(1)
+
+    def getFrame(self):
+        with self.frame_lock:
+            return self.frame
 
 
 def setWidthHeight(width, height, device_number=0):
@@ -232,8 +306,6 @@ def streamSendNewImages(ip, port, device_number=0):
     import socket
     import cPickle as pickle
     import struct
-    import numpy as np
-    from time import sleep
 
     cap = cv2.VideoCapture(device_number)
     cap.set(3, 160)
@@ -278,3 +350,10 @@ def streamSendNewImages(ip, port, device_number=0):
         cap.release()
         cv2.destroyAllWindows()
         print("\rReleased all resources!!!")
+
+
+if __name__ == "__main__":
+    cam = Camera()
+    cam.capture(0)
+    cam.display()
+    
