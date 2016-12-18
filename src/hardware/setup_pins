@@ -1,0 +1,52 @@
+set -e
+
+pwmSetup(){
+	start_dir=$(pwd)
+	echo "Setting up $1"
+
+	config-pin $1 pwm
+
+	chip=$(python -c "from hardware.beaglebone_pins import getChip;print(getChip('$1'))") # find a good way for this
+	echo "The chip is found to be: $chip"
+
+	dir=$(ls -l /sys/class/pwm | grep $chip | sed -ne 's/.*\(pwmchip[0-9]\).*/\1/p' )
+	echo "The directory is $dir"
+
+	cd /sys/class/pwm/$dir
+
+	availble_pwm_dirs=$(ls -l | egrep 'pwm[0-9]' | wc -l)
+	echo "Found directories: $availble_pwm_dirs"
+
+	echo "Enabling the pin ..."
+	sudo echo $availble_pwm_dirs > export
+	echo "Pin enabled."
+
+	pwm_dir=pwm0
+	pwm_dir=pwm$availble_pwm_dirs
+
+	echo $pwd
+
+	echo 'Setting permissions ...'
+	sudo chmod  766 $pwm_dir/enable
+	sudo chmod  766 $pwm_dir/period
+	sudo chmod  766 $pwm_dir/duty_cycle
+	echo 'Permissions set.'
+
+	echo $pwm_dir
+	echo $argv
+	echo $chip
+	echo $dir	
+
+	cd $start_dir
+}
+
+gpioSetup(){
+	cd /sys/class/gpio/gpio$1
+	echo out > direction
+	sudo chmod 766 value
+}
+
+pwmSetup P9.14
+pwmSetup P9.16
+gpioSetup 60
+gpioSetup 48

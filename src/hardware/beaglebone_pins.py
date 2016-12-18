@@ -30,7 +30,7 @@ def getChipFolder(chip):
 
 
 class PWM(object):
-    def __init__(self, pin_name, period):
+    def __init__(self, pin_name, directory,period):
         # config-pin $pin_name pwm
         # print(getBashOutput("config-pin %s pwm" % str(pin_name)))
         chip = getChip(re.sub("\.", "_", pin_name))
@@ -39,13 +39,13 @@ class PWM(object):
         dir = getChipFolder(chip)
         dir = os.path.join('/sys/class/pwm', dir)
 
-        dir = os.path.join(dir, 'pwm0')
+        dir = os.path.join(dir, directory)
         self.period_dir = os.path.join(dir, 'period')
         self.duty_cycle_dir = os.path.join(dir, 'duty_cycle')
         self.enable_dir = os.path.join(dir, 'enable')
 
+        self.setPeriod(period) # take to setup file
         self.setDutyCycle(0)
-        self.setPeriod(period)
         self.enable()
 
     def enable(self):
@@ -53,6 +53,7 @@ class PWM(object):
             file.write("1")
 
     def disable(self):
+        self.setDutyCycle(0)
         with open(self.enable_dir, "w") as file:
             file.write("0")
 
@@ -64,16 +65,41 @@ class PWM(object):
         with open(self.duty_cycle_dir, "w") as file:
             file.write(str(duty_cycle))
 
+class GPIO(object):
+    def __init__(self,gpio_number):
+        self.value_dir = '/sys/class/gpio/gpio%i/value'%gpio_number
+
+    def set(self,value):
+        with open(self.value_dir,"w") as file:
+            file.write("%i"%value)
 
 if __name__ == "__main__":
     from time import sleep
-    chip = getChip("P9_14")
-    print(chip)
-    print(getChipFolder(chip))
-    period = 1000000
-    p = PWM("P9.14",period)
-    p.setDutyCycle(period//10)
+
+    # pin = GPIO(60)
+    # pin.set(1)
+    # sleep(1)
+    # pin.set(0)
+    # sleep(1)
+    # pin.set(1)
+    # sleep(1)
+    # pin.set(0)
+    # sleep(1)
+
+    period = 100000
+
+    p14 = PWM("P9.14",'pwm0',period)
+    p14.setDutyCycle(period//10)
     sleep(10)
-    p.setDutyCycle(9*period//10)
+    p14.setDutyCycle(9*period//10)
     sleep(10)
-    p.disable()
+    p14.disable()
+    
+    # sleep(1)
+
+    # p16 = PWM("P9.16",'pwm1',period)
+    # p16.setDutyCycle(period//10)
+    # sleep(5)
+    # p16.setDutyCycle(9*period//10)
+    # sleep(5)
+    # p16.disable()

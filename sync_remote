@@ -31,7 +31,7 @@ if {$argv != "force"} {
 
     interact
     puts "=============================="
-    puts -nonewline "Do you want to proceed \[y/N]? "
+    puts -nonewline "Do you want to proceed [y/N]? "
     flush stdout
     set response [gets stdin]
 }
