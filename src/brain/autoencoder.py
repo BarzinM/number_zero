@@ -11,13 +11,15 @@ class Convolutional(object):
         self.parameters.append((patch_size, depth, stride))
         
 
-    def modelEncoder(self,input):
+    def model(self,input):
         self.input_shape = [int(a) for a in input.get_shape()]
         
         previous_depth = self.input_shape[-1]
         flow = input
+        self.loss = 0
         for patch_size,depth,stride in self.parameters:
             w,b = generateWeightAndBias([patch_size,patch_size,previous_depth,depth])
+            self.loss+=tf.nn.l2_loss(w)
             previous_depth = depth
             flow = tf.nn.conv2d(flow, w, strides=[1, 1, 1, 1], padding='SAME')
             flow = tf.nn.bias_add(flow, b)
@@ -54,7 +56,7 @@ class AutoEncoder(Convolutional):
                 
     def model(self,input):
         with tf.variable_scope('encoder'):
-            flow = self.modelEncoder(input)
+            flow = self.model(input)
         with tf.variable_scope('decoder'):
             return self.modelDecoder(flow)
 

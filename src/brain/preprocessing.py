@@ -3,6 +3,17 @@ from scipy import ndimage
 import os
 import random
 import glob
+from scipy.ndimage.interpolation import geometric_transform
+
+
+def skew(array, shift_size):
+    h, l = array.shape
+    def mapping(lc):
+        l, c = lc
+        dec = (dl * (l - h)) / h
+        return l, c + dec
+    dl = 50
+    c = geometric_transform(a, mapping, (h, l + dl), order=5, mode='nearest')
 
 
 def toOnehot(array, num_classes=10):
@@ -38,7 +49,7 @@ def showMultipleArraysHorizontally(array, labels=None, max_per_row=10):
     import matplotlib.pyplot as plt
     fig = figure()
     number_of_images = len(array)
-    rows = np.floor(number_of_images / max_per_row)+1
+    rows = np.floor(number_of_images / max_per_row) + 1
     columns = min(number_of_images, max_per_row)
     for i in range(number_of_images):
         ax = fig.add_subplot(rows, columns, i + 1)
@@ -66,10 +77,11 @@ def dataGenerator(batch_size, file_name):
         # get batches
         number_of_datapoints = data.shape[0]
 
-        full_batches = number_of_datapoints//batch_size
+        full_batches = number_of_datapoints // batch_size
 
         for batch_count in range(0, full_batches):
-            batch_data = data[batch_count*batch_size:(batch_count+1)*batch_size]
+            batch_data = data[batch_count *
+                              batch_size:(batch_count + 1) * batch_size]
 
             yield batch_data
 
@@ -78,7 +90,7 @@ def arrayToFile(file_name, array, batch_size):
 
     file_handle = open(file_name, "wb")
     number_of_data = array.shape[0]
-    print('Saving %d data samples into "%s" ...' %(number_of_data,file_name))
+    print('Saving %d data samples into "%s" ...' % (number_of_data, file_name))
 
     # iterate over data in big batches
     for batch_start in range(0, number_of_data, batch_size):
@@ -121,7 +133,7 @@ def shuffleFiles(array):
 
 
 def shuffleMultipleArrays(list_of_arrays):
-    assert type(list_of_arrays[0]) == list
+    # assert type(list_of_arrays[0]) == list
     indx = np.random.permutation(len(list_of_arrays[0]))
     return [array[indx] for array in list_of_arrays]
 

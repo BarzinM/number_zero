@@ -1,8 +1,8 @@
 import tensorflow as tf
 
 def generateWeightAndBias(shape):
-    weight = tf.Variable(tf.truncated_normal(shape, stddev=.01))
-    bias = tf.Variable(tf.constant(.01, shape=[shape[-1]]))
+    weight = tf.Variable(tf.truncated_normal(shape, stddev=.1))
+    bias = tf.Variable(tf.constant(.1, shape=[shape[-1]]))
     return weight, bias
 
 

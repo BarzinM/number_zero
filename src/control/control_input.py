@@ -69,14 +69,16 @@ def startConsole(directory=None, camera_address=None):
 
     if camera_address is None:
         send_command = False
+        cam.setSize(160, 120)
         cam.capture()
+
     else:
         send_command = True
         connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         connection.settimeout(100)
         connection.connect(camera_address)
-        cam.receive2(connection) # TODO: refactore camera module
+        cam.receive2(connection)  # TODO: refactore camera module
 
     pygame.init()
 
@@ -126,19 +128,19 @@ def startConsole(directory=None, camera_address=None):
                     border_time = time()
                     border_color = [0, 255, 0]
                     reward = 1
-                    # save to positive directory
+
                     if should_save:
-                        # writeFrame(frame_received, os.path.join(
-                        #     dir_positive, '%i' % id_positive))
+                        writeFrame(frame_received, os.path.join(
+                            dir_positive, '%i' % id_positive))
                         id_positive += 1
                 elif event.key == K_MINUS:
                     border_time = time()
                     border_color = [255, 0, 0]
                     reward = -1
-                    # save to negative directory
+
                     if should_save:
-                        # writeFrame(frame_received, os.path.join(
-                        #     dir_negative, '%i' % id_negative))
+                        writeFrame(frame_received, os.path.join(
+                            dir_negative, '%i' % id_negative))
                         id_negative += 1
 
                 if event.key == K_ESCAPE:
@@ -177,14 +179,16 @@ def startConsole(directory=None, camera_address=None):
         else:
             _forward = forward
 
-        message = struct.pack(">cffc", "s",_forward,_turn,"e")
+        message = struct.pack(">cffc", "s", _forward, _turn, "e")
         # print(struct.unpack(">cffc",message))
 
         if send_command:
             connection.send(message)
 
         # if forward or turn or reward:
-        print("%+i | %+ 1.3f | %+ 1.3f"%(reward, forward, turn))
+        print("Positives: %i | Negatives: %i" %(id_positive, id_negative))
+        print("%+i | %+ 1.3f | %+ 1.3f" % (reward, forward, turn))
+        stdout.write("\033[F\033[K")
         stdout.write("\033[F\033[K")
 
         pygame.display.flip()  # or pygame.display.update()
@@ -193,4 +197,4 @@ def startConsole(directory=None, camera_address=None):
     pygame.quit()
 
 if __name__ == "__main__":
-    startConsole(directory='/tmp/console',camera_address=address)
+    startConsole(directory='/tmp/console')

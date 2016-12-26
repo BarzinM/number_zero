@@ -76,30 +76,20 @@ class GPIO(object):
 if __name__ == "__main__":
     from time import sleep
 
-    # pin = GPIO(60)
-    # pin.set(1)
-    # sleep(1)
-    # pin.set(0)
-    # sleep(1)
-    # pin.set(1)
-    # sleep(1)
-    # pin.set(0)
-    # sleep(1)
+    pin = GPIO(60)
+    pin.set(1)
+    sleep(1)
+    pin.set(0)
+    sleep(1)
+    pin.set(1)
+    sleep(1)
+    pin.set(0)
+    sleep(1)
 
     period = 100000
-
     p14 = PWM("P9.14",'pwm0',period)
     p14.setDutyCycle(period//10)
     sleep(10)
     p14.setDutyCycle(9*period//10)
     sleep(10)
     p14.disable()
-    
-    # sleep(1)
-
-    # p16 = PWM("P9.16",'pwm1',period)
-    # p16.setDutyCycle(period//10)
-    # sleep(5)
-    # p16.setDutyCycle(9*period//10)
-    # sleep(5)
-    # p16.disable()
