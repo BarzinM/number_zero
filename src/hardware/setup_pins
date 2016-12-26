@@ -2,48 +2,50 @@ set -e
 
 pwmSetup(){
 	start_dir=$(pwd)
-	echo "Setting up $1"
+	echo "Setting up $1 as PWM pin ..."
 
 	config-pin $1 pwm
 
-	chip=$(python -c "from hardware.beaglebone_pins import getChip;print(getChip('$1'))") # find a good way for this
-	echo "The chip is found to be: $chip"
+	chip=$(python -c "from beaglebone_pins import getChip;print(getChip('$1'))") # find a good way for this
+	echo "- The chip is found to be: $chip"
 
 	dir=$(ls -l /sys/class/pwm | grep $chip | sed -ne 's/.*\(pwmchip[0-9]\).*/\1/p' )
-	echo "The directory is $dir"
+	echo "- The directory is $dir"
 
 	cd /sys/class/pwm/$dir
 
 	availble_pwm_dirs=$(ls -l | egrep 'pwm[0-9]' | wc -l)
-	echo "Found directories: $availble_pwm_dirs"
+	echo "- Found directories: $availble_pwm_dirs"
 
-	echo "Enabling the pin ..."
+	echo -n "- Enabling the pin ... "
 	sudo echo $availble_pwm_dirs > export
-	echo "Pin enabled."
+	echo "OK"
 
 	pwm_dir=pwm0
 	pwm_dir=pwm$availble_pwm_dirs
 
-	echo $pwd
-
-	echo 'Setting permissions ...'
+	echo -n '- Setting permissions ... '
 	sudo chmod  766 $pwm_dir/enable
 	sudo chmod  766 $pwm_dir/period
 	sudo chmod  766 $pwm_dir/duty_cycle
-	echo 'Permissions set.'
+	echo 'OK'
 
-	echo $pwm_dir
-	echo $argv
-	echo $chip
-	echo $dir	
+	echo "File system directory for $1 is: $pwm_dir\n"
 
 	cd $start_dir
+	echo "$1 is ready as PWM pin."
 }
 
 gpioSetup(){
+	echo "Enablish gpio$1:"
 	cd /sys/class/gpio/gpio$1
+	echo -n "- Setting as output ... "
 	echo out > direction
+	echo "OK"
+	echo -n "- Setting permissions ... "
 	sudo chmod 766 value
+	echo "OK"
+	echo "gpio$1 is ready as digital output."
 }
 
 pwmSetup P9.14

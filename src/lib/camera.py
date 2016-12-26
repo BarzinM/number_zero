@@ -2,17 +2,26 @@ from __future__ import print_function
 import cv2
 import threading
 from time import sleep
+import errno
 
 
 class Camera(object):
-    def __init__(self):
+    def __init__(self, device_number=0):
+        self.device_number = device_number
         self.width = None
         self.height = None
         self.cap = None
         self.frame = None
         self.frame_lock = threading.Lock()
         self.running = True
-        pass
+
+    def setup(self):
+        cap = cv2.VideoCapture(self.device_number)
+        if self.width is not None and self.height is not None:
+            cap.set(3, self.width)
+            cap.set(4, self.height)
+        self.cap = cap
+        return cap
 
     def _applySize(self):
         if self.width is not None and self.height is not None:
@@ -23,11 +32,164 @@ class Camera(object):
         self.width = width
         self.height = height
 
-    def send(self, ip, port, device_number=0):
-        pass
+    def _receive(self):
+        import struct
+        import cPickle as pickle
+        connection = self.connection
+        data_size = struct.calcsize(">L")
+        offset = 2 + 2 * data_size  # 'sp' + data_size
+
+        data = connection.recv(4096)
+
+        while self.running:
+            pointer = -1
+            while len(data) < 4096:
+                data += connection.recv(4096)
+
+            for i in range(len(data) - offset):
+                if data[i] == 's' and data[i + 1] == 'p':
+                    pointer = i + 2
+                    break
+            if pointer < 0:
+                data = data[-offset:] + connection.recv(4096)
+                print('looking again', len(data))
+                continue
+
+            message_size = struct.unpack(
+                ">L", data[pointer:pointer + data_size])[0]
+            pointer += data_size
+            message_size_2 = struct.unpack(
+                ">L", data[pointer:pointer + data_size])[0]
+            pointer += data_size
+            if message_size != message_size_2:
+                print('bad packet size info')
+                continue
+
+            while len(data) < message_size + pointer:
+                data += connection.recv(4096)
+
+            frame_data = data[pointer:pointer + message_size]
+            pointer += message_size
+
+            if data[pointer:pointer + 2] != "ep":
+                print("bad end")
+                data = data[pointer:]
+                continue
+
+            data = data[pointer + 2:]
+
+            frame = pickle.loads(frame_data)
+            with self.frame_lock:
+                self.frame = frame
 
     def receive(self, ip, port):
-        pass
+        import socket
+
+        self.running = True
+
+        connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        connection.settimeout(100)
+        connection.connect((ip, port))
+        self.connection = connection
+        thrd = threading.Thread(target=self._receive)
+        thrd.daemon = True
+        thrd.start()
+        while self.frame is None:
+            sleep(.01)
+
+    def _receive2(self, connection):
+        import struct
+        import cPickle as pickle
+        data_size = struct.calcsize(">L")
+        offset = 2 + 2 * data_size  # 'sp' + data_size
+
+        data = connection.recv(4096)
+
+        while self.running:
+            pointer = -1
+            while len(data) < 4096:
+                data += connection.recv(4096)
+
+            for i in range(len(data) - offset):
+                if data[i] == 's' and data[i + 1] == 'p':
+                    pointer = i + 2
+                    break
+            if pointer < 0:
+                data = data[-offset:] + connection.recv(4096)
+                print('looking again', len(data))
+                continue
+
+            message_size = struct.unpack(
+                ">L", data[pointer:pointer + data_size])[0]
+            pointer += data_size
+            message_size_2 = struct.unpack(
+                ">L", data[pointer:pointer + data_size])[0]
+            pointer += data_size
+            if message_size != message_size_2:
+                print('bad packet size info')
+                continue
+
+            while len(data) < message_size + pointer:
+                data += connection.recv(4096)
+
+            frame_data = data[pointer:pointer + message_size]
+            pointer += message_size
+
+            if data[pointer:pointer + 2] != "ep":
+                print("bad end")
+                data = data[pointer:]
+                continue
+
+            data = data[pointer + 2:]
+
+            frame = pickle.loads(frame_data)
+            with self.frame_lock:
+                self.frame = frame
+
+    def receive2(self, connection):
+        self.running = True
+        thrd = threading.Thread(target=self._receive2, args=(connection,))
+        thrd.daemon = True
+        thrd.start()
+        while self.frame is None:
+            sleep(.01)
+
+    def _send(self, connection):
+        import struct
+        import cPickle as pickle
+        from socket import error as serr
+
+        cap = self.setup()
+        try:
+            while self.running:
+                ret, frame = cap.read()
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                data = pickle.dumps(frame)
+
+                connection.sendall("sp")
+                connection.sendall(struct.pack(">L", len(data)))
+                connection.sendall(struct.pack(">L", len(data)))
+                for i in range(0, len(data), 4096):
+                    connection.sendall(data[i:i + 4096])
+                connection.sendall("ep")
+
+        except serr as e:
+            e = e[0]
+            if e == errno.ECONNRESET:
+                print("Camera debug: Connection reset by peer")
+                # continue
+            else:
+                print("Some socket error!!!")
+        finally:
+            self.running = False
+            cap.release()
+
+    def send(self, connection):
+        self.running = True
+        thrd = threading.Thread(target=self._send, args=(connection,))
+        thrd.daemon = True
+        thrd.start()
 
     def _capture(self):
         cap = self.cap
@@ -42,6 +204,7 @@ class Camera(object):
         cap.release()
 
     def capture(self, device_number=0):
+        self.running = True
         self.cap = cv2.VideoCapture(device_number)
         self._applySize()
         thrd = threading.Thread(target=self._capture)
@@ -76,8 +239,11 @@ class Camera(object):
             return self.frame
 
 
+def writeFrame(frame, name):
+    cv2.imwrite(name + '.png', frame, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+
+
 def setWidthHeight(width, height, device_number=0):
-    # http://docs.opencv.org/2.4/modules/highgui/doc/reading_and_writing_images_and_video.html#videocapture-set
     cap = cv2.VideoCapture(device_number)
     cap.set(3, width)
     cap.set(4, height)
@@ -118,8 +284,6 @@ def streamSend(ip, port, device_number=0):
     connection, address = sock.accept()
     print('Recieved connection from ' + str(address))
 
-    data_size = struct.calcsize(">L")
-
     cap = cv2.VideoCapture(device_number)
     cap.set(3, 160)
     cap.set(4, 120)
@@ -130,7 +294,7 @@ def streamSend(ip, port, device_number=0):
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             data = pickle.dumps(frame)
 
-            connection.sendall("snp")
+            connection.sendall("sp")
             connection.sendall(struct.pack(">L", len(data)))
             connection.sendall(struct.pack(">L", len(data)))
             for i in range(0, len(data), 4096):
@@ -170,7 +334,7 @@ def streamToFile(ip, port, directory, data_count):
     connection.connect((ip, port))
 
     data_size = struct.calcsize(">L")
-    offset = 2 * data_size + 3
+    offset = 2 * data_size + 2
 
     dataset = np.empty((data_count, 120, 160), np.float32)
     filled_index = 0
@@ -188,8 +352,8 @@ def streamToFile(ip, port, directory, data_count):
                 data += connection.recv(4096)
 
             for i in range(len(data) - offset):
-                if data[i] == 's' and data[i + 1] == 'n' and data[i + 2] == 'p':
-                    pointer = i + 3
+                if data[i] == 's' and data[i + 1] == 'p':
+                    pointer = i + 2
                     break
             if pointer < 0:
                 data = data[-offset:] + connection.recv(4096)
@@ -222,7 +386,8 @@ def streamToFile(ip, port, directory, data_count):
             frame = pickle.loads(frame_data)
             dataset[filled_index, :, :] = frame
             filled_index += 1
-            print("Received %i images" %((file_count*data_count)+filled_index))
+            print("Received %i images" %
+                  ((file_count * data_count) + filled_index))
 
             if filled_index + 1 == data_count:
                 arrayToFile(file_name, dataset)
@@ -321,7 +486,6 @@ def streamSendNewImages(ip, port, device_number=0):
     connection, address = sock.accept()
     print('Recieved connection from', str(address))
 
-    data_size = struct.calcsize(">L")
     try:
         while True:
             ret, frame = cap.read()
@@ -356,4 +520,3 @@ if __name__ == "__main__":
     cam = Camera()
     cam.capture(0)
     cam.display()
-    

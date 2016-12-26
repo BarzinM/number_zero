@@ -10,8 +10,7 @@ def getOwnIP():
     temp_sock.connect(('192.168.0.1', 0))
     ip_address = temp_sock.getsockname()[0]
     temp_sock.close()
-    return ip_address
-
+    return ip_address    
 
 class TCP(object):
     def __init__(self, server_port, server_ip=None):
@@ -48,25 +47,25 @@ class TCP(object):
             if pointer < 0:
                 data = data[-offset:] + connection.recv(4096)
                 continue
-        message_size = struct.unpack(
-            ">L", data[pointer:pointer + data_size])[0]
-        pointer += data_size
-        message_size_2 = struct.unpack(
-            ">L", data[pointer:pointer + data_size])[0]
-        pointer += data_size
-        if message_size != message_size_2:
-            print 'bad packet size info'
-            continue
+            message_size = struct.unpack(
+                ">L", data[pointer:pointer + data_size])[0]
+            pointer += data_size
+            message_size_2 = struct.unpack(
+                ">L", data[pointer:pointer + data_size])[0]
+            pointer += data_size
+            if message_size != message_size_2:
+                print 'bad packet size info'
+                continue
 
-        while len(data) < message_size + pointer:
-            data += connection.recv(4096)
+            while len(data) < message_size + pointer:
+                data += connection.recv(4096)
 
-        pointer += message_size
+            pointer += message_size
 
-        if data[pointer:pointer + 2] != "ep":
-            print("bad end")
-            self.buffer = data[pointer:]
-            continue
+            if data[pointer:pointer + 2] != "ep":
+                print("bad end")
+                self.buffer = data[pointer:]
+                continue
 
         self.buffer = data[pointer + 2:]
         return data[pointer:pointer + message_size]

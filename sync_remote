@@ -31,13 +31,13 @@ if {$argv != "force"} {
 
     interact
     puts "=============================="
-    puts -nonewline "Do you want to proceed [y/N]? "
+    puts -nonewline "Do you want to proceed \[y/N]? "
     flush stdout
     set response [gets stdin]
 }
 
 
 if {($argv == "force") || ($response == "y")} {
-    spawn bash -c "rsync -avzP --no-perms --no-owner --no-group --exclude=$exc --delete-before $local_dir $user@$ip:$remote_dir"
+    spawn bash -c "rsync -avzP --no-perms --no-owner --no-group --exclude=$exc  $local_dir $user@$ip:$remote_dir"
     interact
 }
