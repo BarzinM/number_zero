@@ -6,7 +6,7 @@ from time import time
 
 class Encoder(object):
     def __init__(self, input_tensor):
-        depth_list = [8, 16, 32, 64]
+        depth_list = [16, 64, 128, 128]
         stride_list = [2, 2, 2, 2]
         kernel_size_list = [5, 5, 5, 5]
 
@@ -76,7 +76,7 @@ class Encoder(object):
         print(self.encoded.get_shape().as_list())
 
         shape = self.encoded.get_shape().as_list()
-        batch_size = shape[0]
+        batch_size = tf.shape(self.encoded)[0]
         height = shape[1]
         width = shape[2]
         # flow = tf.reshape(flow,[shape[0],shape[1]*shape[2]*shape[3]])
