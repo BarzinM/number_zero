@@ -52,3 +52,5 @@ pwmSetup P9.14
 pwmSetup P9.16
 gpioSetup 60
 gpioSetup 48
+gpioSetup 49
+gpioSetup 115

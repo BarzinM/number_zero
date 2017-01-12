@@ -1,6 +1,9 @@
 #!/usr/bin/expect -f
+set timeout 2
 log_user 0
-set timeout 10;
+
+set remote [lindex $argv 0]
+set option [lindex $argv 1]
 
 proc usage {} {
     puts {Syncs the files between this computer and a remote.}
@@ -14,10 +17,10 @@ if { $argv == "--help" } {
 
 set PATH $::env(NUMBER_ZERO_PATH)
 
-set user [exec $PATH/parse_config $PATH/config/general.yml remote login_name]
+set user [exec $PATH/parse_config $PATH/config/general.yml $remote login_name]
 set local_dir "$PATH/*"
 set remote_dir "~/number_zero/"
-set ip [ exec $PATH/parse_config $PATH/config/general.yml remote ip ]
+set ip [ exec $PATH/parse_config $PATH/config/general.yml $remote ip ]
 set exc [ exec $PATH/parse_config $PATH/config/sync.yml excludes ]
 
 puts "Syncing $local_dir to $remote_dir with $ip as $user ..."

@@ -2,11 +2,11 @@ from beaglebone_pins import PWM, GPIO
 
 
 class Motor(object):
-    def __init__(self, pin, directory):
+    def __init__(self, pin, directory,gpio_1,gpio_2):
         self.period = 100000
         self.pwm = PWM(pin, directory, self.period)
-        self.gpio_1 = GPIO(48)
-        self.gpio_2 = GPIO(60)
+        self.gpio_1 = GPIO(gpio_1)
+        self.gpio_2 = GPIO(gpio_2)
 
     def setValue(self, value):
         self.gpio_1.set(value > 0)

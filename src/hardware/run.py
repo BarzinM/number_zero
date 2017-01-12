@@ -5,10 +5,11 @@ import struct
 from time import sleep
 from sys import stdout
 
-cam = camera.Camera()
-cam.setSize(160, 120)
+# cam = camera.Camera()
+# cam.setSize(160, 120)
 
-motor_1 = Motor("P9.14", 'pwm0')
+motor_1 = Motor("P9.14", 'pwm0',48,60)
+motor_2 = Motor("P9.16", 'pwm1',49,115)
 
 address = ('192.168.1.4', 8089)
 
@@ -26,7 +27,7 @@ while True:
     try:
         connection, peer_address = sock.accept()
 
-        cam.send(connection)
+        # cam.send(connection)
         while True:
             message = connection.recv(message_size)
             _, forward, turn, _ = struct.unpack(message_format, message)
@@ -35,5 +36,6 @@ while True:
             stdout.write("\033[F\033[K")
 
             motor_1.setValue(forward)
+            motor_2.setValue(turn)
     except socket.error:
         continue

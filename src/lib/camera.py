@@ -14,6 +14,7 @@ class Camera(object):
         self.frame = None
         self.frame_lock = threading.Lock()
         self.running = True
+        self.threads = []
 
     def setup(self):
         cap = cv2.VideoCapture(self.device_number)
@@ -32,73 +33,7 @@ class Camera(object):
         self.width = width
         self.height = height
 
-    def _receive(self):
-        import struct
-        import cPickle as pickle
-        connection = self.connection
-        data_size = struct.calcsize(">L")
-        offset = 2 + 2 * data_size  # 'sp' + data_size
-
-        data = connection.recv(4096)
-
-        while self.running:
-            pointer = -1
-            while len(data) < 4096:
-                data += connection.recv(4096)
-
-            for i in range(len(data) - offset):
-                if data[i] == 's' and data[i + 1] == 'p':
-                    pointer = i + 2
-                    break
-            if pointer < 0:
-                data = data[-offset:] + connection.recv(4096)
-                print('looking again', len(data))
-                continue
-
-            message_size = struct.unpack(
-                ">L", data[pointer:pointer + data_size])[0]
-            pointer += data_size
-            message_size_2 = struct.unpack(
-                ">L", data[pointer:pointer + data_size])[0]
-            pointer += data_size
-            if message_size != message_size_2:
-                print('bad packet size info')
-                continue
-
-            while len(data) < message_size + pointer:
-                data += connection.recv(4096)
-
-            frame_data = data[pointer:pointer + message_size]
-            pointer += message_size
-
-            if data[pointer:pointer + 2] != "ep":
-                print("bad end")
-                data = data[pointer:]
-                continue
-
-            data = data[pointer + 2:]
-
-            frame = pickle.loads(frame_data)
-            with self.frame_lock:
-                self.frame = frame
-
-    def receive(self, ip, port):
-        import socket
-
-        self.running = True
-
-        connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        connection.settimeout(100)
-        connection.connect((ip, port))
-        self.connection = connection
-        thrd = threading.Thread(target=self._receive)
-        thrd.daemon = True
-        thrd.start()
-        while self.frame is None:
-            sleep(.01)
-
-    def _receive2(self, connection):
+    def _receive(self, connection):
         import struct
         import cPickle as pickle
         data_size = struct.calcsize(">L")
@@ -147,9 +82,9 @@ class Camera(object):
             with self.frame_lock:
                 self.frame = frame
 
-    def receive2(self, connection):
+    def receive(self, connection):
         self.running = True
-        thrd = threading.Thread(target=self._receive2, args=(connection,))
+        thrd = threading.Thread(target=self._receive, args=(connection,))
         thrd.daemon = True
         thrd.start()
         while self.frame is None:
@@ -200,7 +135,7 @@ class Camera(object):
 
             with self.frame_lock:
                 self.frame = gray
-
+        sleep(.01)
         cap.release()
 
     def capture(self, device_number=0):
@@ -210,6 +145,7 @@ class Camera(object):
         thrd = threading.Thread(target=self._capture)
         thrd.daemon = True
         thrd.start()
+        self.threads.append(thrd)
         while self.frame is None:
             sleep(.01)
 
@@ -228,6 +164,12 @@ class Camera(object):
 
         cap.release()
         cv2.destroyAllWindows()
+
+    def close(self):
+        self.running = False
+        for thread in self.threads:
+            thread.join()
+            print("Closed",thread)
 
     def display(self):
         while True:

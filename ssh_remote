@@ -1,6 +1,39 @@
-ip=$($NUMBER_ZERO_PATH/parse_config $NUMBER_ZERO_PATH/config/general.yml 'remote' 'ip')
-login_name=$($NUMBER_ZERO_PATH/parse_config $NUMBER_ZERO_PATH/config/general.yml 'remote' 'login_name')
+#!/bin/bash
 
-echo "Logging into $ip as '$login_name'"
+remote=$1
+terminate() {
+	printf "\nInterupted by user. Exiting!\n"
+	exit
+}
 
-ssh $login_name@$ip
+trap terminate SIGINT
+
+ip=$($NUMBER_ZERO_PATH/parse_config $NUMBER_ZERO_PATH/config/general.yml "$remote" 'ip')
+login_name=$($NUMBER_ZERO_PATH/parse_config $NUMBER_ZERO_PATH/config/general.yml "$remote" 'login_name')
+
+ping -c 1 $ip > /dev/null
+offline=$?
+
+if [ $offline != 0 ] ; then
+	echo -n "Waiting for the remote to become available on network ... "
+	((count = 20))
+	while [[ $count -ne 0 ]] ; do
+		sleep .5
+		ping -c 1 $ip > /dev/null
+		rc=$?
+		if [[ $rc -eq 0 ]] ; then
+			echo OK
+			break
+		fi
+		((count = count - 1))
+	done
+fi
+
+if [[ $rc -eq 0 ]] ; then
+	echo "Logging into $ip as '$login_name'"
+
+	ssh $login_name@$ip
+else
+	echo "FAILED"
+	echo "Remote was not available. Exiting!"
+fi

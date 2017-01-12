@@ -33,7 +33,10 @@ optimizer = tf.train.AdamOptimizer(.001).minimize(loss)
 train_steps = 100000
 valid_steps = 1000
 
-with tf.Session() as session:
+# sess = tf.InteractiveSession()
+session = tf.Session()
+
+with session.as_default():
     tf.initialize_all_variables().run()
     start_time = time()
     for i in range(1, train_steps + 1):
