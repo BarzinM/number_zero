@@ -169,7 +169,7 @@ class Camera(object):
         self.running = False
         for thread in self.threads:
             thread.join()
-            print("Closed",thread)
+        print("\rCamera: Released all resources!!!")
 
     def display(self):
         while True:

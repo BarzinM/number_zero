@@ -6,7 +6,7 @@ from time import time
 
 class Encoder(object):
     def __init__(self, input_tensor):
-        depth_list = [16, 64, 128, 128]
+        depth_list = [4, 16, 32, 64]#[16, 64, 128, 128]
         stride_list = [2, 2, 2, 2]
         kernel_size_list = [5, 5, 5, 5]
 
@@ -119,7 +119,7 @@ class Encoder(object):
         flow = tf.nn.conv2d_transpose(
             flow, weight_t_4, output_shape=[batch_size, height, width, depth_list[i]], strides=[1, stride_list[i], stride_list[i], 1], padding="SAME")
         flow = tf.nn.bias_add(flow, bias_t_4)
-        self.decoded = tf.nn.tanh(flow)
+        self.decoded = tf.nn.sigmoid(flow)
 
     def encode(self):
         pass
@@ -132,7 +132,6 @@ class Encoder(object):
             tf.abs(self.decoded - self.input_tensor))
 
     def save(self, session):
-        var_1 = tf.Variable(value, name='var_1')
         saver = tf.train.Saver([var_1, var_2])
         saver.save(session, file_name)
         pass
