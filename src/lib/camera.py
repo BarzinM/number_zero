@@ -6,7 +6,7 @@ import errno
 
 
 class Camera(object):
-    def __init__(self, device_number=0):
+    def __init__(self, device_number=0,colored=False):
         self.device_number = device_number
         self.width = None
         self.height = None
@@ -15,6 +15,7 @@ class Camera(object):
         self.frame_lock = threading.Lock()
         self.running = True
         self.threads = []
+        self.colored = colored
 
     def setup(self):
         cap = cv2.VideoCapture(self.device_number)
@@ -126,7 +127,7 @@ class Camera(object):
         thrd.daemon = True
         thrd.start()
 
-    def _capture(self):
+    def _captureGray(self):
         cap = self.cap
         while self.running:
             ret, frame = cap.read()
@@ -138,11 +139,24 @@ class Camera(object):
         sleep(.01)
         cap.release()
 
+    def _captureColor(self):
+        cap = self.cap
+        while self.running:
+            ret, frame = cap.read()
+
+            with self.frame_lock:
+                self.frame = frame
+        sleep(.01)
+        cap.release()
+
     def capture(self, device_number=0):
         self.running = True
         self.cap = cv2.VideoCapture(device_number)
         self._applySize()
-        thrd = threading.Thread(target=self._capture)
+        if self.colored:
+            thrd = threading.Thread(target=self._captureColor)
+        else:
+            thrd = threading.Thread(target=self._captureGray)
         thrd.daemon = True
         thrd.start()
         self.threads.append(thrd)

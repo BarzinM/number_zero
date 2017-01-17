@@ -55,7 +55,7 @@ def showMultipleArraysHorizontally(array, labels=None, max_per_row=10):
         ax = fig.add_subplot(rows, columns, i + 1)
         if labels is not None:
             ax.set_title(labels[i])
-        plt.imshow(array[i], cmap=plt.get_cmap('gray'))
+        plt.imshow(array[i], cmap='gray')
         axis('off')
     plt.show()
 

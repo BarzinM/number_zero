@@ -6,19 +6,20 @@ from time import time
 
 class Encoder(object):
     def __init__(self, input_tensor):
-        depth_list = [4, 16, 32, 64]#[16, 64, 128, 128]
+        depth_list = [16, 64, 128, 256]
         stride_list = [2, 2, 2, 2]
         kernel_size_list = [5, 5, 5, 5]
+        core_dimensions = 200
 
         shape = input_tensor.get_shape().as_list()
-        flow_shape = [(shape[1],shape[2])]
-        depth_list = [shape[3]]+depth_list
-        i=0
+        flow_shape = [(shape[1], shape[2])]
+        depth_list = [shape[3]] + depth_list
+        i = 0
         self.input_tensor = input_tensor
 
         weight_1, bias_1 = generateWeightAndBias(
-            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i+1]])
-        self.loss = tf.nn.l2_loss(weight_1)
+            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i + 1]])
+        self.l2_loss = tf.nn.l2_loss(weight_1)
         flow = tf.nn.conv2d(input_tensor, weight_1, strides=[
                             1, 1, 1, 1], padding='SAME')
         flow = tf.nn.bias_add(flow, bias_1)
@@ -26,14 +27,12 @@ class Encoder(object):
                               1, stride_list[i], stride_list[i], 1], padding='SAME')
         flow = tf.nn.relu(flow)
         shape = flow.get_shape().as_list()
-        flow_shape.append((shape[1],shape[2]))
-        
-        print(flow.get_shape().as_list())
+        flow_shape.append((shape[1], shape[2]))
 
         i += 1
         weight_2, bias_2 = generateWeightAndBias(
-            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i+1]])
-        self.loss += tf.nn.l2_loss(weight_2)
+            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i + 1]])
+        self.l2_loss += tf.nn.l2_loss(weight_2)
         flow = tf.nn.conv2d(flow, weight_2, strides=[
                             1, 1, 1, 1], padding='SAME')
         flow = tf.nn.bias_add(flow, bias_2)
@@ -41,14 +40,12 @@ class Encoder(object):
                               1, stride_list[i], stride_list[i], 1], padding='SAME')
         flow = tf.nn.relu(flow)
         shape = flow.get_shape().as_list()
-        flow_shape.append((shape[1],shape[2]))
-
-        print(flow.get_shape().as_list())
+        flow_shape.append((shape[1], shape[2]))
 
         i += 1
         weight_3, bias_3 = generateWeightAndBias(
-            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i+1]])
-        self.loss += tf.nn.l2_loss(weight_3)
+            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i + 1]])
+        self.l2_loss += tf.nn.l2_loss(weight_3)
         flow = tf.nn.conv2d(flow, weight_3, strides=[
                             1, 1, 1, 1], padding='SAME')
         flow = tf.nn.bias_add(flow, bias_3)
@@ -56,14 +53,12 @@ class Encoder(object):
                               1, stride_list[i], stride_list[i], 1], padding='SAME')
         flow = tf.nn.relu(flow)
         shape = flow.get_shape().as_list()
-        flow_shape.append((shape[1],shape[2]))
-
-        print(flow.get_shape().as_list())
+        flow_shape.append((shape[1], shape[2]))
 
         i += 1
         weight_4, bias_4 = generateWeightAndBias(
-            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i+1]])
-        self.loss += tf.nn.l2_loss(weight_4)
+            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i + 1]])
+        self.l2_loss += tf.nn.l2_loss(weight_4)
         flow = tf.nn.conv2d(flow, weight_4, strides=[
                             1, 1, 1, 1], padding='SAME')
         flow = tf.nn.bias_add(flow, bias_4)
@@ -71,20 +66,36 @@ class Encoder(object):
                               1, stride_list[i], stride_list[i], 1], padding='SAME')
         self.encoded = tf.nn.relu(flow)
         shape = flow.get_shape().as_list()
-        flow_shape.append((shape[1],shape[2]))
+        flow_shape.append((shape[1], shape[2]))
 
-        print(self.encoded.get_shape().as_list())
+        print("Dimensions of encoded layer:",self.encoded.get_shape().as_list())
 
         shape = self.encoded.get_shape().as_list()
         batch_size = tf.shape(self.encoded)[0]
         height = shape[1]
         width = shape[2]
-        # flow = tf.reshape(flow,[shape[0],shape[1]*shape[2]*shape[3]])
+        depth = shape[3]
+
+        flow = tf.reshape(flow, [batch_size, shape[1] * shape[2] * shape[3]])
+
+        weight_core_1 = tf.Variable(tf.truncated_normal(
+            [height * width * depth, core_dimensions], stddev=.05))
+        bias_core_1 = tf.Variable(tf.constant(.05, shape=[core_dimensions]))
+        self.l2_loss += tf.nn.l2_loss(weight_core_1)
+        flow = tf.nn.relu(tf.matmul(flow, weight_core_1) + bias_core_1)
+
+        wieght_core_t_1 = tf.Variable(tf.truncated_normal(
+            [core_dimensions, height * width * depth], stddev=.05))
+        bias_core_t_1 = tf.Variable(
+            tf.constant(.05, shape=[height * width * depth]))
+        flow = tf.nn.relu(tf.matmul(flow, wieght_core_t_1) + bias_core_t_1)
+
+        flow = tf.reshape(flow, [batch_size, shape[1], shape[2], shape[3]])
 
         weight_t_1 = tf.Variable(tf.truncated_normal(
-            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i+1]], stddev=.1))
-        bias_t_1 = tf.Variable(tf.constant(.01, shape=[depth_list[i]]))
-        height,width = flow_shape[i]
+            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i + 1]], stddev=.05))
+        bias_t_1 = tf.Variable(tf.constant(.05, shape=[depth_list[i]]))
+        height, width = flow_shape[i]
         flow = tf.nn.conv2d_transpose(
             flow, weight_t_1, output_shape=[batch_size, height, width, depth_list[i]], strides=[1, stride_list[i], stride_list[i], 1], padding="SAME")
         flow = tf.nn.bias_add(flow, bias_t_1)
@@ -92,10 +103,10 @@ class Encoder(object):
 
         i -= 1
         weight_t_2 = tf.Variable(tf.truncated_normal(
-            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i+1]], stddev=.1))
-        bias_t_2 = tf.Variable(tf.constant(.01, shape=[depth_list[i]]))
-        height,width = flow_shape[i]
-        
+            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i + 1]], stddev=.05))
+        bias_t_2 = tf.Variable(tf.constant(.05, shape=[depth_list[i]]))
+        height, width = flow_shape[i]
+
         flow = tf.nn.conv2d_transpose(
             flow, weight_t_2, output_shape=[batch_size, height, width, depth_list[i]], strides=[1, stride_list[i], stride_list[i], 1], padding="SAME")
         flow = tf.nn.bias_add(flow, bias_t_2)
@@ -103,9 +114,9 @@ class Encoder(object):
 
         i -= 1
         weight_t_3 = tf.Variable(tf.truncated_normal(
-            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i+1]], stddev=.1))
-        bias_t_3 = tf.Variable(tf.constant(.01, shape=[depth_list[i]]))
-        height,width = flow_shape[i]
+            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i + 1]], stddev=.05))
+        bias_t_3 = tf.Variable(tf.constant(.05, shape=[depth_list[i]]))
+        height, width = flow_shape[i]
         flow = tf.nn.conv2d_transpose(
             flow, weight_t_3, output_shape=[batch_size, height, width, depth_list[i]], strides=[1, stride_list[i], stride_list[i], 1], padding="SAME")
         flow = tf.nn.bias_add(flow, bias_t_3)
@@ -113,9 +124,9 @@ class Encoder(object):
 
         i -= 1
         weight_t_4 = tf.Variable(tf.truncated_normal(
-            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i+1]], stddev=.1))
-        bias_t_4 = tf.Variable(tf.constant(.01, shape=[depth_list[i]]))
-        height,width = flow_shape[i]
+            [kernel_size_list[i], kernel_size_list[i], depth_list[i], depth_list[i + 1]], stddev=.05))
+        bias_t_4 = tf.Variable(tf.constant(.05, shape=[depth_list[i]]))
+        height, width = flow_shape[i]
         flow = tf.nn.conv2d_transpose(
             flow, weight_t_4, output_shape=[batch_size, height, width, depth_list[i]], strides=[1, stride_list[i], stride_list[i], 1], padding="SAME")
         flow = tf.nn.bias_add(flow, bias_t_4)
@@ -184,8 +195,8 @@ class AutoEncoder(Convolutional):
             patch_size, depth, stride = parameters[i]
             next_depth = parameters[i + 1][1]
             w = tf.Variable(tf.truncated_normal(
-                [patch_size, patch_size, next_depth, depth], stddev=.1))
-            b = tf.Variable(tf.constant(.01, shape=[next_depth]))
+                [patch_size, patch_size, next_depth, depth], stddev=.05))
+            b = tf.Variable(tf.constant(.05, shape=[next_depth]))
             height = height * stride
             width = width * stride
             flow = tf.nn.conv2d_transpose(
