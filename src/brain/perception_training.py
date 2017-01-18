@@ -14,7 +14,7 @@ from sys import stdout
 
 
 hardcore_train_steps = 10
-buffer_length = 10000
+buffer_length = 100
 temp_buffer_length = 200
 batch_size = 16
 height = 120
@@ -53,7 +53,8 @@ print("Camera image depth is", image_depth)
 data_input = tf.placeholder(tf.float32, shape=(
     None, height, width, image_depth), name="data_input")
 randomized = data_input + tf.random_normal([1,120,160,1],stddev=.05)
-net = Encoder(randomized)
+net = Encoder([height, width, image_depth])
+net.model(randomized)
 output = net.decoded
 
 loss = tf.reduce_mean(tf.square(output - data_input))
@@ -212,5 +213,5 @@ with session.as_default():
         cam.close()
         showMultipleArraysHorizontally(
             buffer[-20:, :, :, 0], max_per_row=4)
-        thrd.join()
+        #thrd.join()
         print("Train thread joined. Process finished.")
