@@ -7,7 +7,7 @@ from time import time
 class Encoder(object):
     def __init__(self, shape=(120, 160, 1)):
         self.depth_list = [16, 64, 128, 256]
-        self.core_dimensions = []
+        self.core_dimensions = [50,50]
         kernel_size_list = [5, 5, 5, 5]
         self.stride_list = [2, 2, 2, 2]
 
@@ -20,26 +20,26 @@ class Encoder(object):
             weight_1, bias_1 = generateWeightAndBias(
                 [kernel_size_list[i], kernel_size_list[i], self.depth_list[i], self.depth_list[i + 1]])
             self.parameters.append([weight_1, bias_1])
-            height = height // self.stride_list[i]
-            width = width // self.stride_list[i]
+            height = height // self.stride_list[i] + (height % self.stride_list[i]>0)
+            width = width // self.stride_list[i] + (width % self.stride_list[i]>0)
             self.shape_list.append([height, width])
 
         self.core_dimensions = [height * width *
                                 self.depth_list[-1]] + self.core_dimensions
-        # for i in range(len(self.core_dimensions) - 1):
-        #     weight_core_1 = tf.Variable(tf.truncated_normal(
-        #         [self.core_dimensions[i], self.core_dimensions[i + 1]], stddev=.05))
-        #     bias_core_1 = tf.Variable(
-        #         tf.constant(.05, shape=[self.core_dimensions[i + 1]]))
-        #     self.parameters.append([weight_core_1, bias_core_1])
+        for i in range(len(self.core_dimensions) - 1):
+            weight_core_1 = tf.Variable(tf.truncated_normal(
+                [self.core_dimensions[i], self.core_dimensions[i + 1]], stddev=.05))
+            bias_core_1 = tf.Variable(
+                tf.constant(.05, shape=[self.core_dimensions[i + 1]]))
+            self.parameters.append([weight_core_1, bias_core_1])
 
-        # for i in range(len(self.core_dimensions) - 1):
-        #     j = len(self.core_dimensions) - i - 1
-        #     wieght_core_t_1 = tf.Variable(tf.truncated_normal(
-        #         [self.core_dimensions[-i - 1], self.core_dimensions[-i - 2]], stddev=.05))
-        #     bias_core_t_1 = tf.Variable(
-        #         tf.constant(.05, shape=[self.core_dimensions[-1 - 2]]))
-        #     self.parameters.append([wieght_core_t_1, bias_core_t_1])
+        for i in range(len(self.core_dimensions) - 1):
+            j = len(self.core_dimensions) - i - 1
+            wieght_core_t_1 = tf.Variable(tf.truncated_normal(
+                [self.core_dimensions[-i - 1], self.core_dimensions[-i - 2]], stddev=.05))
+            bias_core_t_1 = tf.Variable(
+                tf.constant(.05, shape=[self.core_dimensions[-i - 2]]))
+            self.parameters.append([wieght_core_t_1, bias_core_t_1])
 
         for i in range(len(self.depth_list) - 1):
             weight_t_1 = tf.Variable(tf.truncated_normal(
@@ -71,27 +71,34 @@ class Encoder(object):
         self.conv = flow
         print("Dimensions of convolutional tensor:",
               self.conv.get_shape().as_list())
+
         if len(self.core_dimensions) > 1:
-            # flow = tf.reshape(flow, [batch_size, flow_shape[-1][0]*flow_shape[-1][0] * self.depth_list[-1]])
-            # for i in range()
-            # flow = tf.nn.relu(tf.matmul(flow, weight_core_1) + bias_core_1)
 
-            # flow = tf.nn.relu(tf.matmul(flow, wieght_core_t_1) + bias_core_t_1)
+            flow = tf.reshape(flow, [batch_size, flow_shape[-1][0]*flow_shape[-1][1] * self.depth_list[-1]])
 
-            # flow = tf.reshape(flow, [batch_size, shape[1], shape[2], shape[3]])
-            pass
+            for i in range(len(self.core_dimensions)-1):
+                j = i + len(self.depth_list)-1
+                w,b = self.parameters[j]
+                flow = tf.nn.relu(tf.matmul(flow, w) + b)
+
+            self.encoded = flow
+
+            for i in range(len(self.core_dimensions)-1):
+                j = i + len(self.depth_list)-1+len(self.core_dimensions)-1
+                w,b = self.parameters[j]
+                flow = tf.nn.relu(tf.matmul(flow,w) + b)
+
+            flow = tf.reshape(flow, [batch_size, flow_shape[-1][0],flow_shape[-1][1] , self.depth_list[-1]])
 
         else:
-            pass
+            self.encoded = flow
 
         for i in range(len(self.depth_list) - 2):
             j = i + len(self.depth_list) - 1 + 2 * \
                 (len(self.core_dimensions) - 1)
             w, b = self.parameters[j]
-            print("ddddddd:",w.get_shape().as_list(),flow_shape[-i - 1][0], flow_shape[-i - 1][1])
             flow = tf.nn.conv2d_transpose(
                 flow, w, output_shape=[batch_size, flow_shape[-i - 2][0], flow_shape[-i - 2][1], self.depth_list[-i - 2]], strides=[1, self.stride_list[-i - 1], self.stride_list[-i - 1], 1], padding="SAME")
-            print(flow.get_shape().as_list())
             flow = tf.nn.bias_add(flow, b)
             flow = tf.nn.relu(flow)
 
@@ -101,6 +108,8 @@ class Encoder(object):
             flow, w, output_shape=[batch_size, height, width, self.depth_list[0]], strides=[1, self.stride_list[0], self.stride_list[0], 1], padding="SAME")
         flow = tf.nn.bias_add(flow, b)
         self.decoded = tf.nn.sigmoid(flow)
+
+        return self.decoded
 
     def encode(self):
         pass
@@ -112,15 +121,13 @@ class Encoder(object):
         self.error_loss = tf.reduce_mean(
             tf.abs(self.decoded - self.input_tensor))
 
-    def save(self, session):
-        saver = tf.train.Saver([var_1, var_2])
-        saver.save(session, file_name)
-        pass
+    def save(self, session,address):
+        saver = tf.train.Saver(sum(self.parameters,[]))
+        saver.save(session,address)
 
-    def load(self, session):
-        var_1 = tf.Variable(0, validate_shape=False, name='var_1')
-        saver = tf.train.Saver()
-        saver.restore(session, file_name)
+    def load(self, session,address):
+        saver = tf.train.Saver(sum(self.parameters,[]))
+        saver.restore(session, address)
 
     def reset():
         tf.reset_default_graph()
