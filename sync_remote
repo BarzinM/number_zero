@@ -11,7 +11,7 @@ proc usage {} {
     exit
 }
 
-if { $argv == "--help" } {
+if { $option == "--help" } {
     usage
 }
 
@@ -21,11 +21,11 @@ set user [exec $PATH/parse_config $PATH/config/general.yml $remote login_name]
 set local_dir "$PATH/*"
 set remote_dir "~/number_zero/"
 set ip [ exec $PATH/parse_config $PATH/config/general.yml $remote ip ]
-set exc [ exec $PATH/parse_config $PATH/config/sync.yml excludes ]
+set exc [ exec $PATH/parse_config $PATH/config/sync.yml $remote excludes ]
 
 puts "Syncing $local_dir to $remote_dir with $ip as $user ..."
 
-if {$argv != "force"} {
+if {$option != "force"} {
     puts "The following will be updated:"
     puts "=============================="
 
@@ -40,7 +40,7 @@ if {$argv != "force"} {
 }
 
 
-if {($argv == "force") || ($response == "y")} {
+if {($option == "force") || ($response == "y")} {
     spawn bash -c "rsync -avzP --no-perms --no-owner --no-group --exclude=$exc  $local_dir $user@$ip:$remote_dir"
     interact
 }

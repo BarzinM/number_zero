@@ -1,12 +1,11 @@
 from __future__ import print_function
-import cv2
 import threading
 from time import sleep
 import errno
 
 
 class Camera(object):
-    def __init__(self, device_number=0,colored=False):
+    def __init__(self, device_number=0, colored=False):
         self.device_number = device_number
         self.width = None
         self.height = None
@@ -37,6 +36,7 @@ class Camera(object):
     def _receive(self, connection):
         import struct
         import cPickle as pickle
+        #import pickle
         data_size = struct.calcsize(">L")
         offset = 2 + 2 * data_size  # 'sp' + data_size
 
@@ -66,7 +66,7 @@ class Camera(object):
                 print('bad packet size info')
                 continue
 
-            while len(data) < message_size + pointer:
+            while len(data) < message_size + pointer + 2:
                 data += connection.recv(4096)
 
             frame_data = data[pointer:pointer + message_size]
@@ -95,6 +95,7 @@ class Camera(object):
         import struct
         import cPickle as pickle
         from socket import error as serr
+        import cv2
 
         cap = self.setup()
         try:

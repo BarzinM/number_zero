@@ -78,7 +78,7 @@ def startConsole(directory=None, camera_address=None):
         connection.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         connection.settimeout(100)
         connection.connect(camera_address)
-        # cam.receive(connection)  # TODO: refactore camera module
+        cam.receive(connection)  # TODO: refactore camera module
 
     pygame.init()
 
@@ -103,13 +103,13 @@ def startConsole(directory=None, camera_address=None):
     keep_running = True
     while keep_running:
 
-        # surface.blit(background,(0,0))
-        # frame_received = cam.getFrame()
-        # frame = cv2.resize(frame_received, (width, height))
-        # frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
-        # frame = np.rot90(frame)
-        # frame = pygame.surfarray.make_surface(frame)
-        # surface.blit(frame, (0, 0))
+        surface.blit(background,(0,0))
+        frame_received = cam.getFrame()
+        frame = cv2.resize(frame_received, (width, height))
+        frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+        frame = np.rot90(frame)
+        frame = pygame.surfarray.make_surface(frame)
+        surface.blit(frame, (0, 0))
 
         reward = 0
 
